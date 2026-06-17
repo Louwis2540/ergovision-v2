@@ -449,18 +449,31 @@ async function openCam() {
 }
 
 async function flipCam() {
+  // สลับระหว่างกล้องหน้า (user) และกล้องหลัง (environment)
   facing = facing==='user' ? 'environment' : 'user';
   if(stream) stream.getTracks().forEach(t=>t.stop());
   if(cam) cam.stop();
+  $('stxt').textContent = 'กำลังสลับกล้อง...';
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video:{ width:{ideal:1280}, height:{ideal:720}, facingMode:{ideal:facing} } });
-    const v = $('vid'); v.srcObject = stream;
-    v.style.transform = facing==='user' ? 'scaleX(-1)' : 'none';
-    $('cvs').style.transform = v.style.transform;
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: facing,
+        width: {ideal:1280}, height: {ideal:720}
+      }
+    });
+    const v = $('vid');
+    v.srcObject = stream;
+    // mirror เฉพาะกล้องหน้า
+    const mirror = facing==='user' ? 'scaleX(-1)' : 'none';
+    v.style.transform = mirror;
+    $('cvs').style.transform = mirror;
     cam = new Camera(v, { onFrame: async()=>{ if(pose) await pose.send({image:v}); }, width:1280, height:720 });
     cam.start();
-    $('stxt').textContent = facing==='user' ? '📷 กล้องหน้า' : '📷 กล้องหลัง';
-  } catch(e) { $('stxt').textContent='❌ สลับกล้องไม่ได้'; }
+    $('stxt').textContent = facing==='user' ? '📷 กล้องหน้า พร้อมแล้ว' : '📷 กล้องหลัง พร้อมแล้ว';
+  } catch(e) {
+    facing = facing==='user' ? 'environment' : 'user';
+    $('stxt').textContent = '❌ ไม่มีกล้อง' + (facing==='environment' ? 'หน้า' : 'หลัง') + ' ในอุปกรณ์นี้';
+  }
 }
 
 function closeCam() {
