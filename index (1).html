@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ErgoVision</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, system-ui, sans-serif; background: #0a0c12; color: #e0e0e0; }
+
+header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: #0d1018;
+  border-bottom: 1px solid #1a1e2e;
+  position: sticky; top: 0; z-index: 100;
+}
+.ldot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; box-shadow: 0 0 8px #6366f180; }
+header h1 { font-size: 15px; font-weight: 600; }
+header small { font-size: 10px; color: #4b5563; margin-left: 4px; }
+
+/* === CAMERA === */
+.cam-wrap {
+  background: #050709;
+  padding: 12px 12px 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.vid-box {
+  position: relative; width: 100%; max-width: 500px;
+  height: 36vh; background: #0d1018;
+  border-radius: 12px; overflow: hidden; border: 1px solid #222;
+}
+video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+canvas { pointer-events: none; }
+.idle-msg {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: #4b5563;
+}
+.idle-msg svg { opacity: .35; }
+.idle-msg p { font-size: 13px; }
+
+/* rec badge */
+.rec-badge {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(0,0,0,.65); border-radius: 20px;
+  padding: 4px 10px; display: none; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600;
+}
+.rec-badge.on { display: flex; }
+.rdot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: rb 1s infinite; }
+@keyframes rb { 0%,100%{opacity:1} 50%{opacity:.2} }
+.rec-fr { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.65); border-radius: 8px; padding: 4px 10px; font-size: 11px; color: #a5b4fc; display: none; }
+.rec-fr.on { display: block; }
+
+/* === BUTTONS === */
+.btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%; max-width: 500px;
+  padding: 10px 0;
+}
+.btns button {
+  border: none; border-radius: 10px;
+  padding: 15px 8px; font-size: 15px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; -webkit-appearance: none;
+}
+.btns button:active { opacity: .75; }
+.btns button:disabled { opacity: .3; }
+
+#bStart  { background: #6366f1; color: #fff; grid-column: 1/-1; }
+#bRec    { background: #ef4444; color: #fff; display: none; }
+#bStop2  { background: #f59e0b; color: #0a0c12; display: none; }
+#bFlip   { background: #1e2235; color: #a5b4fc; border: 1px solid #2d3258; display: none; }
+#bOff    { background: #1e2235; color: #6b7280; border: 1px solid #1e2235; display: none; grid-column: 1/-1; }
+
+.sbar {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: #4b5563;
+  width: 100%; max-width: 500px; padding: 4px 0 10px;
+}
+.sdot { width: 6px; height: 6px; border-radius: 50%; background: #374151; flex-shrink: 0; }
+.sdot.on { background: #10b981; box-shadow: 0 0 5px #10b98160; }
+.sdot.ld { background: #f59e0b; animation: pu 1s infinite; }
+.sdot.rc { background: #ef4444; animation: pu .8s infinite; }
+@keyframes pu { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* === DATA PANEL === */
+.sec { padding: 12px 14px; border-bottom: 1px solid #1a1e2e; }
+.stit {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: #4b5563;
+  display: flex; justify-content: space-between; margin-bottom: 10px;
+}
+.stit span { color: #6366f1; }
+
+.ag { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.ac { background: #131620; border: 1px solid #1e2235; border-radius: 8px; padding: 8px 10px; }
+.al { font-size: 9px; color: #6b7280; margin-bottom: 3px; }
+.av { font-size: 20px; font-weight: 700; color: #e0e0e0; line-height: 1; font-variant-numeric: tabular-nums; }
+.av s { font-size: 11px; font-weight: 400; color: #6b7280; text-decoration: none; }
+.abar { margin-top: 5px; height: 3px; background: #1e2235; border-radius: 2px; overflow: hidden; }
+.afil { height: 100%; border-radius: 2px; width: 0%; transition: width .3s, background .3s; }
+
+/* summary */
+.sr { display: flex; gap: 8px; margin-bottom: 10px; }
+.sb { flex: 1; background: #131620; border: 1px solid #1e2235; border-radius: 8px; padding: 10px; text-align: center; }
+.sl { font-size: 9px; color: #6b7280; margin-bottom: 4px; }
+.sv { font-size: 22px; font-weight: 700; }
+.ss { font-size: 9px; color: #6b7280; margin-top: 2px; }
+.rbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #1e2235; margin: 4px 0; }
+.rbar div { height: 100%; }
+.rleg { display: flex; justify-content: space-between; font-size: 9px; color: #6b7280; }
+
+/* rula */
+.rg { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 8px; }
+.rc2 { background: #131620; border: 1px solid #1e2235; border-radius: 6px; padding: 8px; text-align: center; }
+.rl { font-size: 9px; color: #6b7280; margin-bottom: 2px; }
+.rv { font-size: 20px; font-weight: 700; color: #e0e0e0; }
+.abg { display: flex; align-items: center; gap: 12px; background: #131620; border: 1px solid #1e2235; border-radius: 8px; padding: 12px 14px; }
+.an { font-size: 36px; font-weight: 800; min-width: 40px; color: #4b5563; }
+.alv { font-size: 13px; font-weight: 600; }
+.adc { font-size: 11px; color: #6b7280; margin-top: 2px; line-height: 1.5; }
+
+/* ai */
+.aibox { background: #0f1320; border: 1px solid #232840; border-radius: 8px; padding: 12px; min-height: 70px; font-size: 13px; line-height: 1.7; color: #a0aec0; }
+.aihd { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.aidot { width: 6px; height: 6px; border-radius: 50%; background: #6366f1; }
+.ailbl { font-size: 10px; font-weight: 700; color: #6366f1; letter-spacing: .08em; }
+.think { display: flex; gap: 4px; align-items: center; color: #4b5563; font-size: 12px; }
+.think i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #6366f1; animation: bop 1.2s infinite; font-style: normal; }
+.think i:nth-child(2){animation-delay:.2s} .think i:nth-child(3){animation-delay:.4s}
+@keyframes bop { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+.ph { font-size: 12px; color: #374151; font-style: italic; }
+
+/* colors */
+.rl { color: #10b981; } .rm { color: #f59e0b; } .rh { color: #f97316; } .ru { color: #ef4444; }
+.fl { background: #10b981; } .fm { background: #f59e0b; } .fh { background: #f97316; } .fu { background: #ef4444; }
+
+@media(min-width:700px){
+  .page { display: grid; grid-template-columns: 1fr 360px; height: calc(100vh - 49px); }
+  .cam-wrap { border-right: 1px solid #1a1e2e; border-bottom: none; justify-content: center; }
+  .vid-box { height: auto; aspect-ratio: 4/3; max-height: 50vh; }
+  .data { overflow-y: auto; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="ldot"></div>
+  <h1>ErgoVision</h1>
+  <small>AI Ergonomics · Prototype</small>
+</header>
+
+<div class="page">
+<div class="cam-wrap">
+
+  <div class="vid-box">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="cvs"></canvas>
+    <div class="idle-msg" id="idle">
+      <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#6b7280" stroke-width="1.2">
+        <path d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+      </svg>
+      <p>กด "เปิดกล้อง" เพื่อเริ่ม</p>
+    </div>
+    <div class="rec-badge" id="rbadge"><div class="rdot"></div><span id="rtime">00:00</span></div>
+    <div class="rec-fr" id="rfr">0 frames</div>
+  </div>
+
+  <!-- BUTTONS always visible below video -->
+  <div class="btns">
+    <button id="bStart" onclick="startCam()">▶ เปิดกล้อง</button>
+    <button id="bRec"   onclick="startRec()">● บันทึก</button>
+    <button id="bStop2" onclick="stopRec()">■ หยุด &amp; วิเคราะห์</button>
+    <button id="bFlip"  onclick="flipCam()">⟳ สลับกล้อง</button>
+    <button id="bOff"   onclick="stopCam()">✕ ปิดกล้อง</button>
+  </div>
+
+  <div class="sbar">
+    <div class="sdot" id="sdot"></div>
+    <span id="stxt">กล้องยังไม่เปิด</span>
+    <span id="fps" style="margin-left:auto;font-variant-numeric:tabular-nums"></span>
+  </div>
+
+</div><!-- end cam-wrap -->
+
+<div class="data">
+
+  <div class="sec">
+    <div class="stit">Joint Angles <span id="ltag">live</span></div>
+    <div class="ag">
+      <div class="ac"><div class="al">Neck</div><div class="av" id="aN">--<s>°</s></div><div class="abar"><div class="afil" id="bN"></div></div></div>
+      <div class="ac"><div class="al">Trunk</div><div class="av" id="aT">--<s>°</s></div><div class="abar"><div class="afil" id="bT"></div></div></div>
+      <div class="ac"><div class="al">R.Shoulder</div><div class="av" id="aRS">--<s>°</s></div><div class="abar"><div class="afil" id="bRS"></div></div></div>
+      <div class="ac"><div class="al">R.Elbow</div><div class="av" id="aRE">--<s>°</s></div><div class="abar"><div class="afil" id="bRE"></div></div></div>
+      <div class="ac"><div class="al">L.Shoulder</div><div class="av" id="aLS">--<s>°</s></div><div class="abar"><div class="afil" id="bLS"></div></div></div>
+      <div class="ac"><div class="al">L.Elbow</div><div class="av" id="aLE">--<s>°</s></div><div class="abar"><div class="afil" id="bLE"></div></div></div>
+    </div>
+  </div>
+
+  <div class="sec" id="sumSec" style="display:none">
+    <div class="stit">สรุปผลการบันทึก <span id="sumDur">-</span></div>
+    <div class="sr">
+      <div class="sb"><div class="sl">RULA เฉลี่ย</div><div class="sv" id="sAvg">-</div><div class="ss">/7</div></div>
+      <div class="sb"><div class="sl">RULA สูงสุด</div><div class="sv" id="sMax">-</div><div class="ss">/7</div></div>
+      <div class="sb"><div class="sl">Frames</div><div class="sv" id="sFr" style="color:#a5b4fc">-</div><div class="ss" id="sFps">-</div></div>
+    </div>
+    <div class="sl">% เวลาในแต่ละระดับความเสี่ยง</div>
+    <div class="rbar" id="rbar"></div>
+    <div class="rleg"><span class="rl">● ปลอดภัย</span><span class="rm">● ปานกลาง</span><span class="rh">● สูง</span><span class="ru">● สูงมาก</span></div>
+  </div>
+
+  <div class="sec">
+    <div class="stit">RULA Score <span id="rtag">live</span></div>
+    <div class="rg">
+      <div class="rc2"><div class="rl">Neck</div><div class="rv" id="rN">-</div></div>
+      <div class="rc2"><div class="rl">Trunk</div><div class="rv" id="rT">-</div></div>
+      <div class="rc2"><div class="rl">Shoulder</div><div class="rv" id="rS">-</div></div>
+      <div class="rc2"><div class="rl">Elbow</div><div class="rv" id="rE">-</div></div>
+      <div class="rc2"><div class="rl">Grand</div><div class="rv" id="rG" style="font-size:22px">-</div></div>
+      <div class="rc2"><div class="rl">Action</div><div class="rv" id="rA" style="font-size:22px">-</div></div>
+    </div>
+    <div class="abg">
+      <div class="an" id="aNum">?</div>
+      <div><div class="alv" id="aLv">รอผลการวิเคราะห์</div><div class="adc" id="aDc">เปิดกล้องแล้วกดบันทึก</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="stit">AI Recommendation</div>
+    <div class="aibox">
+      <div class="aihd"><div class="aidot"></div><div class="ailbl">Claude Analysis</div></div>
+      <div id="aiOut" class="ph">บันทึกท่าทางแล้วระบบจะวิเคราะห์ให้อัตโนมัติ</div>
+    </div>
+  </div>
+
+</div><!-- end data -->
+</div><!-- end page -->
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script>
+let stream=null,cam=null,pose=null,facing='environment';
+let recording=false,buf=[],recStart=0,recTmr=null;
+let fc=0,ft=performance.now();
+
+function $(i){return document.getElementById(i)}
+
+function initPose(){
+  pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+  pose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  pose.onResults(onRes);
+}
+
+async function startCam(){
+  $('sdot').className='sdot ld'; $('stxt').textContent='กำลังโหลด...';
+  if(!pose) initPose();
+  try {
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:{ideal:facing}}});
+    const v=$('vid'); v.srcObject=stream;
+    v.style.transform=facing==='user'?'scaleX(-1)':'none';
+    $('cvs').style.transform=facing==='user'?'scaleX(-1)':'none';
+    $('idle').style.display='none';
+    $('bStart').style.display='none';
+    $('bRec').style.display='';
+    $('bFlip').style.display='';
+    $('bOff').style.display='';
+    cam=new Camera(v,{onFrame:async()=>{if(pose)await pose.send({image:v})},width:640,height:480});
+    cam.start();
+    $('sdot').className='sdot on'; $('stxt').textContent='กล้องพร้อม — กด ● บันทึก';
+  } catch(e){
+    $('sdot').className='sdot';
+    $('stxt').textContent=e.name==='NotAllowedError'?'❌ กรุณาอนุญาตกล้อง':e.name==='NotFoundError'?'❌ ไม่พบกล้อง':'❌ '+e.message;
+  }
+}
+
+async function flipCam(){
+  facing=facing==='user'?'environment':'user';
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(cam) cam.stop();
+  try {
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:{ideal:facing}}});
+    const v=$('vid'); v.srcObject=stream;
+    v.style.transform=facing==='user'?'scaleX(-1)':'none';
+    $('cvs').style.transform=facing==='user'?'scaleX(-1)':'none';
+    cam=new Camera(v,{onFrame:async()=>{if(pose)await pose.send({image:v})},width:640,height:480});
+    cam.start();
+    $('stxt').textContent=facing==='user'?'กล้องหน้า':'กล้องหลัง';
+  } catch(e){ $('stxt').textContent='❌ สลับไม่ได้: '+e.message; }
+}
+
+function startRec(){
+  recording=true; buf=[]; recStart=performance.now();
+  $('bRec').style.display='none'; $('bStop2').style.display='';
+  $('bFlip').disabled=true;
+  $('rbadge').classList.add('on'); $('rfr').classList.add('on');
+  $('sdot').className='sdot rc'; $('stxt').textContent='กำลังบันทึก...';
+  $('ltag').textContent='● REC'; $('ltag').style.color='#ef4444';
+  recTmr=setInterval(()=>{
+    const s=Math.floor((performance.now()-recStart)/1000);
+    $('rtime').textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+    $('rfr').textContent=buf.length+' frames';
+  },250);
+}
+
+function stopRec(){
+  recording=false; clearInterval(recTmr);
+  $('bStop2').style.display='none'; $('bRec').style.display='';
+  $('bFlip').disabled=false;
+  $('rbadge').classList.remove('on'); $('rfr').classList.remove('on');
+  $('sdot').className='sdot on';
+  $('ltag').textContent='live'; $('ltag').style.color='#6366f1';
+  if(buf.length<3){ $('stxt').textContent='⚠️ ข้อมูลน้อยเกิน บันทึกใหม่'; return; }
+  $('stxt').textContent='วิเคราะห์ผล...';
+  analyze();
+}
+
+function stopCam(){
+  if(recording) stopRec();
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(cam) cam.stop();
+  $('bStart').style.display=''; $('bRec').style.display='none';
+  $('bStop2').style.display='none'; $('bFlip').style.display='none'; $('bOff').style.display='none';
+  $('idle').style.display='flex';
+  $('sdot').className='sdot'; $('stxt').textContent='กล้องปิด'; $('fps').textContent='';
+  const c=$('cvs'); c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+function a3(A,B,C){
+  const ax=A.x-B.x,ay=A.y-B.y,cx=C.x-B.x,cy=C.y-B.y;
+  const d=ax*cx+ay*cy,m=Math.sqrt(ax*ax+ay*ay)*Math.sqrt(cx*cx+cy*cy);
+  return m?Math.round(Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI):0;
+}
+function vA(t,b){return Math.round(Math.abs(Math.atan2(b.x-t.x,b.y-t.y)*180/Math.PI));}
+
+function rulaScore(a){
+  const n=a.neck<10?1:a.neck<20?2:a.neck<45?3:4;
+  const t=a.trunk<5?1:a.trunk<20?2:a.trunk<60?3:4;
+  const s=a.rS<20?1:a.rS<45?2:a.rS<90?3:4;
+  const e=(a.rE>=60&&a.rE<=100)?1:2;
+  const g=Math.min(7,Math.round((Math.max(n,t)+Math.max(s,e))/2+1));
+  const ac=g<=2?1:g<=4?2:g<=6?3:4;
+  return{n,t,s,e,g,ac,
+    lv:['','Acceptable','Investigate','Investigate soon','Investigate NOW'][ac],
+    dc:['','ท่าทางปลอดภัย','ควรตรวจสอบเพิ่มเติม','ต้องปรับปรุงในเร็วๆ นี้','ต้องแก้ไขทันที!'][ac]
+  };
+}
+
+function rcl(a){return['','rl','rm','rh','ru'][a]||''}
+function fcl(a){return['','fl','fm','fh','fu'][a]||''}
+
+function showRula(r){
+  $('rN').textContent=r.n; $('rT').textContent=r.t;
+  $('rS').textContent=r.s; $('rE').textContent=r.e;
+  $('rG').textContent=r.g; $('rG').className='rv '+rcl(r.ac);
+  $('rA').textContent=r.ac; $('rA').className='rv '+rcl(r.ac);
+  $('aNum').textContent=r.ac; $('aNum').className='an '+rcl(r.ac);
+  $('aLv').textContent=r.lv; $('aDc').textContent=r.dc;
+}
+
+function onRes(res){
+  const cv=$('cvs'),ctx=cv.getContext('2d'),v=$('vid');
+  cv.width=v.videoWidth||640; cv.height=v.videoHeight||480;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  fc++; const now=performance.now();
+  if(now-ft>1000){$('fps').textContent=fc+' fps';fc=0;ft=now;}
+  if(!res.poseLandmarks)return;
+  const lm=res.poseLandmarks;
+  drawConnectors(ctx,lm,POSE_CONNECTIONS,{color:'#a5b4fc44',lineWidth:2});
+  drawLandmarks(ctx,lm,{color:'#6366f1',fillColor:'#818cf8',lineWidth:1,radius:4});
+
+  const nose=lm[0],lS=lm[11],rS=lm[12],lE=lm[13],rE=lm[14],lH=lm[23],rH=lm[24];
+  const mS={x:(lS.x+rS.x)/2,y:(lS.y+rS.y)/2},mH={x:(lH.x+rH.x)/2,y:(lH.y+rH.y)/2};
+  const ang={neck:vA(nose,mS),trunk:vA(mS,mH),rS:a3(rH,rS,rE),lS:a3(lH,lS,lE),rE:a3(rS,rE,{x:rE.x,y:rE.y+.2}),lE:a3(lS,lE,{x:lE.x,y:lE.y+.2})};
+
+  // labels on canvas
+  [[mS,`neck ${ang.neck}°`],[mH,`trunk ${ang.trunk}°`]].forEach(([p,txt])=>{
+    const x=p.x*cv.width,y=p.y*cv.height;
+    ctx.fillStyle='rgba(0,0,0,.65)'; ctx.fillRect(x+5,y-14,txt.length*7.5+6,17);
+    ctx.fillStyle='#fbbf24'; ctx.font='bold 12px monospace'; ctx.fillText(txt,x+7,y);
+  });
+
+  if(recording) buf.push({ang,r:rulaScore(ang),t:now});
+
+  // live angles
+  [['aN','bN',ang.neck,90],['aT','bT',ang.trunk,90],['aRS','bRS',ang.rS,180],['aRE','bRE',ang.rE,180],['aLS','bLS',ang.lS,180],['aLE','bLE',ang.lE,180]].forEach(([vi,bi,v2,mx])=>{
+    $(vi).innerHTML=v2+'<s>°</s>';
+    const p=Math.min(100,(v2/mx)*100),bar=$(bi);
+    bar.style.width=p+'%'; bar.className='afil '+(p>66?'fu':p>40?'fh':'fl');
+  });
+
+  if($('rtag').textContent==='live') showRula(rulaScore(ang));
+}
+
+function analyze(){
+  const N=buf.length;
+  const avg=k=>Math.round(buf.reduce((s,f)=>s+f.ang[k],0)/N);
+  const avgAng={neck:avg('neck'),trunk:avg('trunk'),rS:avg('rS'),lS:avg('lS'),rE:avg('rE'),lE:avg('lE')};
+  const grands=buf.map(f=>f.r.g);
+  const avgG=(grands.reduce((a,b)=>a+b,0)/N);
+  const maxG=Math.max(...grands);
+  const lc=[0,0,0,0,0]; buf.forEach(f=>lc[f.r.ac]++);
+  const pct=lc.map(c=>Math.round(c/N*100));
+  const dur=Math.round((buf[N-1].t-buf[0].t)/1000);
+  const worst=buf.reduce((mx,f)=>f.r.g>mx.r.g?f:mx,buf[0]);
+
+  $('sumSec').style.display='';
+  $('sumDur').textContent=dur+'s · '+N+' frames';
+  $('sAvg').textContent=avgG.toFixed(1); $('sAvg').className='sv '+rcl(Math.round(avgG));
+  $('sMax').textContent=maxG; $('sMax').className='sv '+rcl(maxG);
+  $('sFr').textContent=N; $('sFps').textContent=Math.round(N/Math.max(dur,1))+' fps';
+
+  const colors=['','#10b981','#f59e0b','#f97316','#ef4444'];
+  const bar=$('rbar'); bar.innerHTML='';
+  for(let i=1;i<=4;i++){if(pct[i]>0){const d=document.createElement('div');d.style.width=pct[i]+'%';d.style.background=colors[i];bar.appendChild(d);}}
+
+  $('rtag').textContent='สรุป (worst)';
+  showRula(worst.r);
+  $('stxt').textContent='วิเคราะห์เสร็จแล้ว';
+
+  getAI(avgAng,avgG,maxG,pct,dur,worst.r);
+}
+
+async function getAI(avg,avgG,maxG,pct,dur,worst){
+  const box=$('aiOut');
+  box.innerHTML='<div class="think"><i></i><i></i><i></i>&nbsp;Claude กำลังวิเคราะห์ session...</div>';
+  const p=`คุณเป็น Certified Professional Ergonomist วิเคราะห์ผลบันทึกท่าทาง ${dur} วินาที:\n\nมุมข้อต่อเฉลี่ย: คอ ${avg.neck}° | ลำตัว ${avg.trunk}° | ไหล่ขวา ${avg.rS}° | ข้อศอกขวา ${avg.rE}° | ไหล่ซ้าย ${avg.lS}° | ข้อศอกซ้าย ${avg.lE}°\n\nRULA เฉลี่ย ${avgG.toFixed(1)}/7 | สูงสุด ${maxG}/7\n% เวลา: ปลอดภัย ${pct[1]}% | ปานกลาง ${pct[2]}% | สูง ${pct[3]}% | สูงมาก ${pct[4]}%\n\nให้คำแนะนำภาษาไทย 4 ข้อ: (1) ความเสี่ยงโดยรวม (2) ข้อต่อที่เป็นปัญหาสูงสุด (3) ปรับ workstation (4) ท่าทางที่ควรหลีกเลี่ยง — ตอบเฉพาะคำแนะนำ ไม่มีคำนำ`;
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:p}]})});
+    const d=await res.json();
+    box.innerHTML=(d.content?.[0]?.text||'ไม่สามารถรับคำแนะนำได้').replace(/\n/g,'<br>');
+  } catch(e){box.innerHTML=`<span style="color:#ef4444">❌ ${e.message}</span>`;}
+}
+</script>
+</body>
+</html>
